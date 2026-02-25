@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Winner - Dashboard</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -14,9 +13,7 @@ body{
     background:#0f172a;
     color:white;
 }
-
 header{
-    position:relative;
     display:flex;
     justify-content:space-between;
     align-items:center;
@@ -25,51 +22,7 @@ header{
     border-bottom:1px solid #1f2937;
     flex-wrap:wrap;
 }
-
-header::after{
-    content:"";
-    position:absolute;
-    bottom:0;
-    left:0;
-    height:3px;
-    width:100%;
-    background:linear-gradient(90deg,#facc15,#fde047,#fbbf24);
-}
-
-.logo-container{
-    display:flex;
-    align-items:center;
-    gap:15px;
-}
-
 .logo{ height:60px; }
-
-.titulo-empresa{
-    margin:0;
-    font-size:22px;
-    font-weight:800;
-    letter-spacing:1px;
-    background: linear-gradient(90deg,#facc15,#fde047,#fbbf24);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-}
-
-.header-buttons{ display:flex; gap:10px; }
-
-button{
-    padding:8px 14px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    font-weight:bold;
-    transition:0.2s;
-}
-
-button:hover{ transform:scale(1.05); }
-
-.salvar{background:#16a34a;color:white;}
-.limpar{background:#dc2626;color:white;}
-.remover{background:#7f1d1d;color:white;font-size:12px;}
 
 .container{
     display:grid;
@@ -77,13 +30,20 @@ button:hover{ transform:scale(1.05); }
     gap:20px;
     padding:25px;
 }
-
 .card{
     background:#1e293b;
     padding:18px;
     border-radius:12px;
-    box-shadow:0 0 15px rgba(0,0,0,0.4);
 }
+button{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:bold;
+}
+.salvar{background:#16a34a;color:white;}
+.limpar{background:#dc2626;color:white;}
 
 input, select{
     padding:8px;
@@ -93,13 +53,10 @@ input, select{
     border:none;
 }
 
-.lista-item{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+.lista-item, .historico-item{
     margin-top:6px;
-    background:#334155;
     padding:6px;
+    background:#334155;
     border-radius:6px;
 }
 
@@ -109,15 +66,6 @@ input, select{
     border-radius:6px;
     font-weight:bold;
 }
-
-.historico-item{
-    margin-top:6px;
-    padding:8px;
-    background:#334155;
-    border-radius:6px;
-    font-size:14px;
-}
-
 .verde{background:#14532d;}
 .amarelo{background:#854d0e;}
 .vermelho{background:#7f1d1d;}
@@ -129,11 +77,7 @@ canvas{
 }
 
 @media (max-width:768px){
-    .container{ grid-template-columns:1fr; padding:15px; }
-    header{ flex-direction:column; text-align:center; gap:15px; }
-    .logo-container{ flex-direction:column; }
-    .header-buttons{ flex-direction:column; width:100%; }
-    .header-buttons button{ width:100%; }
+.container{ grid-template-columns:1fr; }
 }
 </style>
 </head>
@@ -141,12 +85,10 @@ canvas{
 <body>
 
 <header>
-<div class="logo-container">
-<img src="./logo.jpg.jpg" alt="Winner Promotoria e Vendas" class="logo">
-<h1 class="titulo-empresa">Winner Promotoria e Vendas</h1>
+<div>
+<img src="./logo.jpg.jpg" class="logo">
 </div>
-
-<div class="header-buttons">
+<div>
 <button class="salvar" onclick="salvarManual()">💾 Salvar</button>
 <button class="limpar" onclick="limparApp()">🧹 Limpar Tudo</button>
 </div>
@@ -183,8 +125,7 @@ canvas{
 </div>
 
 <div class="card">
-<h3>📜 Histórico de Pontuação</h3>
-<button class="limpar" onclick="limparHistorico()">🗑 Limpar Histórico</button>
+<h3>📜 Histórico</h3>
 <div id="historico"></div>
 </div>
 
@@ -205,21 +146,13 @@ localStorage.setItem("historico", JSON.stringify(historico));
 
 function salvarManual(){
 salvar();
-alert("Dados salvos com sucesso!");
+alert("Salvo com sucesso");
 }
 
 function limparApp(){
-if(confirm("Deseja apagar todos os dados?")){
+if(confirm("Deseja apagar tudo?")){
 localStorage.clear();
 location.reload();
-}
-}
-
-function limparHistorico(){
-if(confirm("Deseja apagar o histórico?")){
-historico=[];
-salvar();
-atualizarTela();
 }
 }
 
@@ -228,11 +161,6 @@ const nome=document.getElementById("nomeColab").value.trim();
 if(!nome) return;
 colaboradores.push({nome,pontos:0});
 document.getElementById("nomeColab").value="";
-atualizarTela();
-}
-
-function removerColaborador(index){
-colaboradores.splice(index,1);
 atualizarTela();
 }
 
@@ -246,34 +174,30 @@ document.getElementById("valorCampanha").value="";
 atualizarTela();
 }
 
-function removerCampanha(index){
-campanhas.splice(index,1);
-atualizarTela();
-}
-
 function pontuar(){
-const c=document.getElementById("selectColaborador").value;
-const k=document.getElementById("selectCampanha").value;
-if(c===""||k==="") return;
+const selectColab=document.getElementById("selectColaborador");
+const selectCamp=document.getElementById("selectCampanha");
 
-colaboradores[c].pontos+=campanhas[k].valor;
+const colaboradorIndex = selectColab.value;
+const campanhaIndex = selectCamp.value;
+
+if(colaboradorIndex===""||campanhaIndex==="") return;
+
+colaboradores[colaboradorIndex].pontos += campanhas[campanhaIndex].valor;
 
 const agora=new Date();
-const data=agora.toLocaleDateString();
-const hora=agora.toLocaleTimeString();
-
 historico.unshift({
-colaborador:colaboradores[c].nome,
-campanha:campanhas[k].nome,
-pontos:campanhas[k].valor,
-data,
-hora
+colaborador:colaboradores[colaboradorIndex].nome,
+campanha:campanhas[campanhaIndex].nome,
+pontos:campanhas[campanhaIndex].valor,
+data:agora.toLocaleDateString(),
+hora:agora.toLocaleTimeString()
 });
 
-atualizarTela();
+atualizarTela(colaboradorIndex, campanhaIndex);
 }
 
-function atualizarTela(){
+function atualizarTela(colabSelecionado=null, campSelecionada=null){
 
 salvar();
 
@@ -285,21 +209,13 @@ const selectCamp=document.getElementById("selectCampanha");
 const historicoDiv=document.getElementById("historico");
 
 listaColab.innerHTML="";
-colaboradores.forEach((c,i)=>{
-listaColab.innerHTML+=`
-<div class="lista-item">
-👤 ${c.nome}
-<button class="remover" onclick="removerColaborador(${i})">❌</button>
-</div>`;
+colaboradores.forEach(c=>{
+listaColab.innerHTML+=`<div class="lista-item">👤 ${c.nome}</div>`;
 });
 
 listaCamp.innerHTML="";
-campanhas.forEach((c,i)=>{
-listaCamp.innerHTML+=`
-<div class="lista-item">
-🎯 ${c.nome} (+${c.valor})
-<button class="remover" onclick="removerCampanha(${i})">❌</button>
-</div>`;
+campanhas.forEach(c=>{
+listaCamp.innerHTML+=`<div class="lista-item">🎯 ${c.nome} (+${c.valor})</div>`;
 });
 
 selectColab.innerHTML="";
@@ -312,6 +228,9 @@ campanhas.forEach((c,i)=>{
 selectCamp.innerHTML+=`<option value="${i}">${c.nome} (+${c.valor})</option>`;
 });
 
+if(colabSelecionado !== null) selectColab.value = colabSelecionado;
+if(campSelecionada !== null) selectCamp.value = campSelecionada;
+
 let rankingOrdenado=[...colaboradores].sort((a,b)=>b.pontos-a.pontos);
 rankingDiv.innerHTML="";
 let cores=[];
@@ -320,16 +239,12 @@ rankingOrdenado.forEach((c,index)=>{
 let classe="amarelo";
 let cor="#facc15";
 let medalha="🥈";
-
 if(index===0){classe="verde";cor="#16a34a";medalha="🥇";}
 else if(index===rankingOrdenado.length-1&&rankingOrdenado.length>1){
 classe="vermelho";cor="#dc2626";medalha="🔻";
 }
-
 cores.push(cor);
-
-rankingDiv.innerHTML+=`
-<div class="ranking-item ${classe}">
+rankingDiv.innerHTML+=`<div class="ranking-item ${classe}">
 ${medalha} ${c.nome} - ${c.pontos} pts
 </div>`;
 });
@@ -338,9 +253,9 @@ historicoDiv.innerHTML="";
 historico.forEach(h=>{
 historicoDiv.innerHTML+=`
 <div class="historico-item">
-🕒 ${h.data} às ${h.hora}<br>
-👤 ${h.colaborador} recebeu ${h.pontos} pts<br>
-🎯 Campanha: ${h.campanha}
+🕒 ${h.data} ${h.hora}<br>
+👤 ${h.colaborador} +${h.pontos} pts<br>
+🎯 ${h.campanha}
 </div>`;
 });
 
@@ -349,8 +264,7 @@ atualizarGrafico(rankingOrdenado,cores);
 
 function atualizarGrafico(dados,cores){
 if(grafico) grafico.destroy();
-const ctx=document.getElementById("grafico");
-grafico=new Chart(ctx,{
+grafico=new Chart(document.getElementById("grafico"),{
 type:"bar",
 data:{
 labels:dados.map(d=>d.nome),
@@ -360,7 +274,6 @@ backgroundColor:cores
 }]
 },
 options:{
-responsive:true,
 plugins:{legend:{display:false}},
 scales:{
 x:{ticks:{color:"white"}},
