@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Winner - Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, Helvetica, sans-serif;
+    background:#0f172a;
+    color:white;
+}
+
+header{
+    position:relative;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px 30px;
+    background:#0b1220;
+    border-bottom:1px solid #1f2937;
+    flex-wrap:wrap;
+}
+
+header::after{
+    content:"";
+    position:absolute;
+    bottom:0;
+    left:0;
+    height:3px;
+    width:100%;
+    background:linear-gradient(90deg,#facc15,#fde047,#fbbf24);
+}
+
+.logo-container{
+    display:flex;
+    align-items:center;
+    gap:15px;
+}
+
+.logo{ height:60px; }
+
+.titulo-empresa{
+    margin:0;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:1px;
+    background: linear-gradient(90deg,#facc15,#fde047,#fbbf24);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.header-buttons{ display:flex; gap:10px; }
+
+button{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:0.2s;
+}
+
+button:hover{ transform:scale(1.05); }
+
+.salvar{background:#16a34a;color:white;}
+.limpar{background:#dc2626;color:white;}
+.remover{background:#7f1d1d;color:white;font-size:12px;}
+
+.container{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    padding:25px;
+}
+
+.card{
+    background:#1e293b;
+    padding:18px;
+    border-radius:12px;
+    box-shadow:0 0 15px rgba(0,0,0,0.4);
+}
+
+input, select{
+    padding:8px;
+    margin:6px 0;
+    width:100%;
+    border-radius:6px;
+    border:none;
+}
+
+.lista-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:6px;
+    background:#334155;
+    padding:6px;
+    border-radius:6px;
+}
+
+.ranking-item{
+    padding:8px;
+    margin-top:6px;
+    border-radius:6px;
+    font-weight:bold;
+}
+
+.historico-item{
+    margin-top:6px;
+    padding:8px;
+    background:#334155;
+    border-radius:6px;
+    font-size:14px;
+}
+
+.verde{background:#14532d;}
+.amarelo{background:#854d0e;}
+.vermelho{background:#7f1d1d;}
+
+canvas{
+    width:100% !important;
+    height:300px !important;
+    margin-top:10px;
+}
+
+@media (max-width:768px){
+    .container{ grid-template-columns:1fr; padding:15px; }
+    header{ flex-direction:column; text-align:center; gap:15px; }
+    .logo-container{ flex-direction:column; }
+    .header-buttons{ flex-direction:column; width:100%; }
+    .header-buttons button{ width:100%; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="logo-container">
+<img src="./logo.jpg.jpg" alt="Winner Promotoria e Vendas" class="logo">
+<h1 class="titulo-empresa">Winner Promotoria e Vendas</h1>
+</div>
+
+<div class="header-buttons">
+<button class="salvar" onclick="salvarManual()">💾 Salvar</button>
+<button class="limpar" onclick="limparApp()">🧹 Limpar Tudo</button>
+</div>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h3>👤 Colaboradores</h3>
+<input id="nomeColab" placeholder="Nome do colaborador">
+<button onclick="criarColaborador()">➕ Adicionar</button>
+<div id="listaColaboradores"></div>
+</div>
+
+<div class="card">
+<h3>🎯 Campanhas</h3>
+<input id="nomeCampanha" placeholder="Nome da campanha">
+<input id="valorCampanha" type="number" placeholder="Pontos">
+<button onclick="criarCampanha()">➕ Criar Campanha</button>
+<div id="listaCampanhas"></div>
+</div>
+
+<div class="card">
+<h3>⭐ Aplicar Pontos</h3>
+<select id="selectColaborador"></select>
+<select id="selectCampanha"></select>
+<button onclick="pontuar()">⚡ Aplicar Pontos</button>
+</div>
+
+<div class="card">
+<h3>📊 Ranking</h3>
+<div id="ranking"></div>
+<canvas id="grafico"></canvas>
+</div>
+
+<div class="card">
+<h3>📜 Histórico de Pontuação</h3>
+<button class="limpar" onclick="limparHistorico()">🗑 Limpar Histórico</button>
+<div id="historico"></div>
+</div>
+
+</div>
+
+<script>
+
+let colaboradores = JSON.parse(localStorage.getItem("colaboradores")) || [];
+let campanhas = JSON.parse(localStorage.getItem("campanhas")) || [];
+let historico = JSON.parse(localStorage.getItem("historico")) || [];
+let grafico;
+
+function salvar(){
+localStorage.setItem("colaboradores", JSON.stringify(colaboradores));
+localStorage.setItem("campanhas", JSON.stringify(campanhas));
+localStorage.setItem("historico", JSON.stringify(historico));
+}
+
+function salvarManual(){
+salvar();
+alert("Dados salvos com sucesso!");
+}
+
+function limparApp(){
+if(confirm("Deseja apagar todos os dados?")){
+localStorage.clear();
+location.reload();
+}
+}
+
+function limparHistorico(){
+if(confirm("Deseja apagar o histórico?")){
+historico=[];
+salvar();
+atualizarTela();
+}
+}
+
+function criarColaborador(){
+const nome=document.getElementById("nomeColab").value.trim();
+if(!nome) return;
+colaboradores.push({nome,pontos:0});
+document.getElementById("nomeColab").value="";
+atualizarTela();
+}
+
+function removerColaborador(index){
+colaboradores.splice(index,1);
+atualizarTela();
+}
+
+function criarCampanha(){
+const nome=document.getElementById("nomeCampanha").value.trim();
+const valor=parseInt(document.getElementById("valorCampanha").value);
+if(!nome||isNaN(valor)) return;
+campanhas.push({nome,valor});
+document.getElementById("nomeCampanha").value="";
+document.getElementById("valorCampanha").value="";
+atualizarTela();
+}
+
+function removerCampanha(index){
+campanhas.splice(index,1);
+atualizarTela();
+}
+
+function pontuar(){
+const c=document.getElementById("selectColaborador").value;
+const k=document.getElementById("selectCampanha").value;
+if(c===""||k==="") return;
+
+colaboradores[c].pontos+=campanhas[k].valor;
+
+const agora=new Date();
+const data=agora.toLocaleDateString();
+const hora=agora.toLocaleTimeString();
+
+historico.unshift({
+colaborador:colaboradores[c].nome,
+campanha:campanhas[k].nome,
+pontos:campanhas[k].valor,
+data,
+hora
+});
+
+atualizarTela();
+}
+
+function atualizarTela(){
+
+salvar();
+
+const listaColab=document.getElementById("listaColaboradores");
+const listaCamp=document.getElementById("listaCampanhas");
+const rankingDiv=document.getElementById("ranking");
+const selectColab=document.getElementById("selectColaborador");
+const selectCamp=document.getElementById("selectCampanha");
+const historicoDiv=document.getElementById("historico");
+
+listaColab.innerHTML="";
+colaboradores.forEach((c,i)=>{
+listaColab.innerHTML+=`
+<div class="lista-item">
+👤 ${c.nome}
+<button class="remover" onclick="removerColaborador(${i})">❌</button>
+</div>`;
+});
+
+listaCamp.innerHTML="";
+campanhas.forEach((c,i)=>{
+listaCamp.innerHTML+=`
+<div class="lista-item">
+🎯 ${c.nome} (+${c.valor})
+<button class="remover" onclick="removerCampanha(${i})">❌</button>
+</div>`;
+});
+
+selectColab.innerHTML="";
+colaboradores.forEach((c,i)=>{
+selectColab.innerHTML+=`<option value="${i}">${c.nome}</option>`;
+});
+
+selectCamp.innerHTML="";
+campanhas.forEach((c,i)=>{
+selectCamp.innerHTML+=`<option value="${i}">${c.nome} (+${c.valor})</option>`;
+});
+
+let rankingOrdenado=[...colaboradores].sort((a,b)=>b.pontos-a.pontos);
+rankingDiv.innerHTML="";
+let cores=[];
+
+rankingOrdenado.forEach((c,index)=>{
+let classe="amarelo";
+let cor="#facc15";
+let medalha="🥈";
+
+if(index===0){classe="verde";cor="#16a34a";medalha="🥇";}
+else if(index===rankingOrdenado.length-1&&rankingOrdenado.length>1){
+classe="vermelho";cor="#dc2626";medalha="🔻";
+}
+
+cores.push(cor);
+
+rankingDiv.innerHTML+=`
+<div class="ranking-item ${classe}">
+${medalha} ${c.nome} - ${c.pontos} pts
+</div>`;
+});
+
+historicoDiv.innerHTML="";
+historico.forEach(h=>{
+historicoDiv.innerHTML+=`
+<div class="historico-item">
+🕒 ${h.data} às ${h.hora}<br>
+👤 ${h.colaborador} recebeu ${h.pontos} pts<br>
+🎯 Campanha: ${h.campanha}
+</div>`;
+});
+
+atualizarGrafico(rankingOrdenado,cores);
+}
+
+function atualizarGrafico(dados,cores){
+if(grafico) grafico.destroy();
+const ctx=document.getElementById("grafico");
+grafico=new Chart(ctx,{
+type:"bar",
+data:{
+labels:dados.map(d=>d.nome),
+datasets:[{
+data:dados.map(d=>d.pontos),
+backgroundColor:cores
+}]
+},
+options:{
+responsive:true,
+plugins:{legend:{display:false}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
+}
+
+atualizarTela();
+
+</script>
+
+</body>
+</html>
