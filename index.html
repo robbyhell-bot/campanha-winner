@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Winner - Dashboard</title>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -24,8 +23,6 @@ header{
     border-bottom:2px solid #facc15;
     flex-wrap:wrap;
 }
-
-.logo{ height:60px; }
 
 button{
     padding:8px 14px;
@@ -70,8 +67,16 @@ input, select{
     align-items:center;
     margin-top:6px;
     background:#334155;
-    padding:6px;
+    padding:8px;
     border-radius:6px;
+}
+
+.historico-item{
+    margin-top:6px;
+    padding:8px;
+    background:#334155;
+    border-radius:6px;
+    font-size:14px;
 }
 
 canvas{
@@ -89,9 +94,7 @@ canvas{
 <body>
 
 <header>
-<div>
 <h2>Winner Promotoria e Vendas</h2>
-</div>
 <div>
 <button class="salvar" onclick="salvarManual()">💾 Salvar</button>
 <button class="limpar" onclick="limparApp()">🧹 Limpar Tudo</button>
@@ -129,8 +132,9 @@ canvas{
 </div>
 
 <div class="card">
-<h3>📈 Ranking Campanhas</h3>
-<canvas id="graficoCampanhas"></canvas>
+<h3>📜 Histórico da Campanha</h3>
+<button class="limpar" onclick="limparHistorico()">🗑 Limpar Histórico</button>
+<div id="historico"></div>
 </div>
 
 </div>
@@ -139,12 +143,13 @@ canvas{
 
 let colaboradores = JSON.parse(localStorage.getItem("colaboradores")) || [];
 let campanhas = JSON.parse(localStorage.getItem("campanhas")) || [];
+let historico = JSON.parse(localStorage.getItem("historico")) || [];
 let graficoColab;
-let graficoCamp;
 
 function salvar(){
 localStorage.setItem("colaboradores", JSON.stringify(colaboradores));
 localStorage.setItem("campanhas", JSON.stringify(campanhas));
+localStorage.setItem("historico", JSON.stringify(historico));
 }
 
 function salvarManual(){
@@ -157,6 +162,11 @@ if(confirm("Deseja apagar todos os dados?")){
 localStorage.clear();
 location.reload();
 }
+}
+
+function limparHistorico(){
+historico=[];
+atualizarTela();
 }
 
 function criarColaborador(){
@@ -173,6 +183,13 @@ document.getElementById("nomeColab").value="";
 atualizarTela();
 }
 
+function removerColaborador(index){
+if(confirm("Remover colaborador?")){
+colaboradores.splice(index,1);
+atualizarTela();
+}
+}
+
 function criarCampanha(){
 const nome=document.getElementById("nomeCampanha").value.trim();
 const valor=parseInt(document.getElementById("valorCampanha").value);
@@ -184,28 +201,12 @@ document.getElementById("valorCampanha").value="";
 atualizarTela();
 }
 
-function removerCampanha(index){
-
-let nomeCamp=campanhas[index].nome;
-
-if(confirm("Deseja remover esta campanha?")){
-
-// remove campanha dos colaboradores
-colaboradores.forEach(c=>{
-if(c.campanhas[nomeCamp]){
-c.pontos -= c.campanhas[nomeCamp];
-delete c.campanhas[nomeCamp];
-}
-});
-
-campanhas.splice(index,1);
-atualizarTela();
-}
-}
-
 function pontuar(){
-const c=document.getElementById("selectColaborador").value;
-const k=document.getElementById("selectCampanha").value;
+let selectColab=document.getElementById("selectColaborador");
+let selectCamp=document.getElementById("selectCampanha");
+
+let c=selectColab.value;
+let k=selectCamp.value;
 if(c===""||k==="") return;
 
 let colaborador=colaboradores[c];
@@ -219,12 +220,17 @@ colaborador.campanhas[campanha.nome]=0;
 
 colaborador.campanhas[campanha.nome]+=campanha.valor;
 
-atualizarTela();
+registrarHistorico(colaborador.nome,campanha.nome,campanha.valor,"adicionou");
+
+atualizarTela(c);
 }
 
 function removerPontos(){
-const c=document.getElementById("selectColaborador").value;
-const k=document.getElementById("selectCampanha").value;
+let selectColab=document.getElementById("selectColaborador");
+let selectCamp=document.getElementById("selectCampanha");
+
+let c=selectColab.value;
+let k=selectCamp.value;
 if(c===""||k==="") return;
 
 let colaborador=colaboradores[c];
@@ -233,46 +239,54 @@ let campanha=campanhas[k];
 if(colaborador.campanhas[campanha.nome]){
 colaborador.pontos-=campanha.valor;
 colaborador.campanhas[campanha.nome]-=campanha.valor;
+
 if(colaborador.campanhas[campanha.nome]<=0){
 delete colaborador.campanhas[campanha.nome];
 }
 if(colaborador.pontos<0) colaborador.pontos=0;
+
+registrarHistorico(colaborador.nome,campanha.nome,campanha.valor,"removeu");
 }
 
-atualizarTela();
+atualizarTela(c);
 }
 
-function calcularRankingCampanhas(){
-
-let resultado={};
-
-campanhas.forEach(c=>{
-resultado[c.nome]=0;
+function registrarHistorico(nome,campanha,pontos,acao){
+const agora=new Date();
+historico.unshift({
+nome,
+campanha,
+pontos,
+acao,
+data:agora.toLocaleDateString(),
+hora:agora.toLocaleTimeString()
 });
-
-colaboradores.forEach(col=>{
-for(let camp in col.campanhas){
-resultado[camp]+=col.campanhas[camp];
-}
-});
-
-return resultado;
 }
 
-function atualizarTela(){
+function atualizarTela(colaboradorSelecionado=null){
 
 salvar();
 
+const listaColab=document.getElementById("listaColaboradores");
 const listaCamp=document.getElementById("listaCampanhas");
 const selectColab=document.getElementById("selectColaborador");
 const selectCamp=document.getElementById("selectCampanha");
+const historicoDiv=document.getElementById("historico");
+
+listaColab.innerHTML="";
+colaboradores.forEach((c,i)=>{
+listaColab.innerHTML+=`
+<div class="lista-item">
+👤 ${c.nome}
+<button class="remover" onclick="removerColaborador(${i})">❌</button>
+</div>`;
+});
 
 listaCamp.innerHTML="";
-campanhas.forEach((c,i)=>{
+campanhas.forEach((c)=>{
 listaCamp.innerHTML+=`
 <div class="lista-item">
 🎯 ${c.nome} (+${c.valor})
-<button class="remover" onclick="removerCampanha(${i})">❌</button>
 </div>`;
 });
 
@@ -281,16 +295,29 @@ colaboradores.forEach((c,i)=>{
 selectColab.innerHTML+=`<option value="${i}">${c.nome}</option>`;
 });
 
+if(colaboradorSelecionado!==null){
+selectColab.value=colaboradorSelecionado;
+}
+
 selectCamp.innerHTML="";
 campanhas.forEach((c,i)=>{
 selectCamp.innerHTML+=`<option value="${i}">${c.nome}</option>`;
 });
 
-atualizarGraficoColaboradores();
-atualizarGraficoCampanhas();
+historicoDiv.innerHTML="";
+historico.forEach(h=>{
+historicoDiv.innerHTML+=`
+<div class="historico-item">
+🕒 ${h.data} às ${h.hora}<br>
+👤 ${h.nome} ${h.acao} ${h.pontos} pts<br>
+🎯 Campanha: ${h.campanha}
+</div>`;
+});
+
+atualizarGrafico();
 }
 
-function atualizarGraficoColaboradores(){
+function atualizarGrafico(){
 
 if(graficoColab) graficoColab.destroy();
 
@@ -302,33 +329,6 @@ data:{
 labels:ordenado.map(c=>c.nome),
 datasets:[{
 data:ordenado.map(c=>c.pontos)
-}]
-},
-options:{
-plugins:{legend:{display:false}},
-scales:{
-x:{ticks:{color:"white"}},
-y:{ticks:{color:"white"}}
-}
-}
-});
-}
-
-function atualizarGraficoCampanhas(){
-
-if(graficoCamp) graficoCamp.destroy();
-
-let ranking=calcularRankingCampanhas();
-
-let nomes=Object.keys(ranking);
-let valores=Object.values(ranking);
-
-graficoCamp=new Chart(document.getElementById("graficoCampanhas"),{
-type:"bar",
-data:{
-labels:nomes,
-datasets:[{
-data:valores
 }]
 },
 options:{
