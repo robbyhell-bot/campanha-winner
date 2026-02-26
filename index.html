@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Winner - Dashboard</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -13,16 +14,33 @@ body{
     background:#0f172a;
     color:white;
 }
+
 header{
     display:flex;
     justify-content:space-between;
     align-items:center;
     padding:18px 30px;
     background:#0b1220;
-    border-bottom:1px solid #1f2937;
+    border-bottom:2px solid #facc15;
     flex-wrap:wrap;
 }
+
 .logo{ height:60px; }
+
+button{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:0.2s;
+}
+
+button:hover{ transform:scale(1.05); }
+
+.salvar{background:#16a34a;color:white;}
+.limpar{background:#dc2626;color:white;}
+.remover{background:#7f1d1d;color:white;font-size:12px;}
 
 .container{
     display:grid;
@@ -30,20 +48,13 @@ header{
     gap:20px;
     padding:25px;
 }
+
 .card{
     background:#1e293b;
     padding:18px;
     border-radius:12px;
+    box-shadow:0 0 15px rgba(0,0,0,0.4);
 }
-button{
-    padding:8px 14px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    font-weight:bold;
-}
-.salvar{background:#16a34a;color:white;}
-.limpar{background:#dc2626;color:white;}
 
 input, select{
     padding:8px;
@@ -53,22 +64,15 @@ input, select{
     border:none;
 }
 
-.lista-item, .historico-item{
+.lista-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
     margin-top:6px;
-    padding:6px;
     background:#334155;
+    padding:6px;
     border-radius:6px;
 }
-
-.ranking-item{
-    padding:8px;
-    margin-top:6px;
-    border-radius:6px;
-    font-weight:bold;
-}
-.verde{background:#14532d;}
-.amarelo{background:#854d0e;}
-.vermelho{background:#7f1d1d;}
 
 canvas{
     width:100% !important;
@@ -86,7 +90,7 @@ canvas{
 
 <header>
 <div>
-<img src="./logo.jpg.jpg" class="logo">
+<h2>Winner Promotoria e Vendas</h2>
 </div>
 <div>
 <button class="salvar" onclick="salvarManual()">💾 Salvar</button>
@@ -99,7 +103,7 @@ canvas{
 <div class="card">
 <h3>👤 Colaboradores</h3>
 <input id="nomeColab" placeholder="Nome do colaborador">
-<button onclick="criarColaborador()">➕ Adicionar</button>
+<button onclick="criarColaborador()">Adicionar</button>
 <div id="listaColaboradores"></div>
 </div>
 
@@ -107,26 +111,26 @@ canvas{
 <h3>🎯 Campanhas</h3>
 <input id="nomeCampanha" placeholder="Nome da campanha">
 <input id="valorCampanha" type="number" placeholder="Pontos">
-<button onclick="criarCampanha()">➕ Criar Campanha</button>
+<button onclick="criarCampanha()">Criar Campanha</button>
 <div id="listaCampanhas"></div>
 </div>
 
 <div class="card">
-<h3>⭐ Aplicar Pontos</h3>
+<h3>⭐ Aplicar / Remover Pontos</h3>
 <select id="selectColaborador"></select>
 <select id="selectCampanha"></select>
-<button onclick="pontuar()">⚡ Aplicar Pontos</button>
+<button onclick="pontuar()">Aplicar Pontos</button>
+<button onclick="removerPontos()">Remover Pontos</button>
 </div>
 
 <div class="card">
-<h3>📊 Ranking</h3>
-<div id="ranking"></div>
-<canvas id="grafico"></canvas>
+<h3>📊 Ranking Colaboradores</h3>
+<canvas id="graficoColaboradores"></canvas>
 </div>
 
 <div class="card">
-<h3>📜 Histórico</h3>
-<div id="historico"></div>
+<h3>📈 Ranking Campanhas</h3>
+<canvas id="graficoCampanhas"></canvas>
 </div>
 
 </div>
@@ -135,22 +139,21 @@ canvas{
 
 let colaboradores = JSON.parse(localStorage.getItem("colaboradores")) || [];
 let campanhas = JSON.parse(localStorage.getItem("campanhas")) || [];
-let historico = JSON.parse(localStorage.getItem("historico")) || [];
-let grafico;
+let graficoColab;
+let graficoCamp;
 
 function salvar(){
 localStorage.setItem("colaboradores", JSON.stringify(colaboradores));
 localStorage.setItem("campanhas", JSON.stringify(campanhas));
-localStorage.setItem("historico", JSON.stringify(historico));
 }
 
 function salvarManual(){
 salvar();
-alert("Salvo com sucesso");
+alert("Dados salvos com sucesso!");
 }
 
 function limparApp(){
-if(confirm("Deseja apagar tudo?")){
+if(confirm("Deseja apagar todos os dados?")){
 localStorage.clear();
 location.reload();
 }
@@ -159,7 +162,13 @@ location.reload();
 function criarColaborador(){
 const nome=document.getElementById("nomeColab").value.trim();
 if(!nome) return;
-colaboradores.push({nome,pontos:0});
+
+colaboradores.push({
+nome,
+pontos:0,
+campanhas:{}
+});
+
 document.getElementById("nomeColab").value="";
 atualizarTela();
 }
@@ -168,54 +177,103 @@ function criarCampanha(){
 const nome=document.getElementById("nomeCampanha").value.trim();
 const valor=parseInt(document.getElementById("valorCampanha").value);
 if(!nome||isNaN(valor)) return;
+
 campanhas.push({nome,valor});
 document.getElementById("nomeCampanha").value="";
 document.getElementById("valorCampanha").value="";
 atualizarTela();
 }
 
-function pontuar(){
-const selectColab=document.getElementById("selectColaborador");
-const selectCamp=document.getElementById("selectCampanha");
+function removerCampanha(index){
 
-const colaboradorIndex = selectColab.value;
-const campanhaIndex = selectCamp.value;
+let nomeCamp=campanhas[index].nome;
 
-if(colaboradorIndex===""||campanhaIndex==="") return;
+if(confirm("Deseja remover esta campanha?")){
 
-colaboradores[colaboradorIndex].pontos += campanhas[campanhaIndex].valor;
-
-const agora=new Date();
-historico.unshift({
-colaborador:colaboradores[colaboradorIndex].nome,
-campanha:campanhas[campanhaIndex].nome,
-pontos:campanhas[campanhaIndex].valor,
-data:agora.toLocaleDateString(),
-hora:agora.toLocaleTimeString()
+// remove campanha dos colaboradores
+colaboradores.forEach(c=>{
+if(c.campanhas[nomeCamp]){
+c.pontos -= c.campanhas[nomeCamp];
+delete c.campanhas[nomeCamp];
+}
 });
 
-atualizarTela(colaboradorIndex, campanhaIndex);
+campanhas.splice(index,1);
+atualizarTela();
+}
 }
 
-function atualizarTela(colabSelecionado=null, campSelecionada=null){
+function pontuar(){
+const c=document.getElementById("selectColaborador").value;
+const k=document.getElementById("selectCampanha").value;
+if(c===""||k==="") return;
+
+let colaborador=colaboradores[c];
+let campanha=campanhas[k];
+
+colaborador.pontos+=campanha.valor;
+
+if(!colaborador.campanhas[campanha.nome]){
+colaborador.campanhas[campanha.nome]=0;
+}
+
+colaborador.campanhas[campanha.nome]+=campanha.valor;
+
+atualizarTela();
+}
+
+function removerPontos(){
+const c=document.getElementById("selectColaborador").value;
+const k=document.getElementById("selectCampanha").value;
+if(c===""||k==="") return;
+
+let colaborador=colaboradores[c];
+let campanha=campanhas[k];
+
+if(colaborador.campanhas[campanha.nome]){
+colaborador.pontos-=campanha.valor;
+colaborador.campanhas[campanha.nome]-=campanha.valor;
+if(colaborador.campanhas[campanha.nome]<=0){
+delete colaborador.campanhas[campanha.nome];
+}
+if(colaborador.pontos<0) colaborador.pontos=0;
+}
+
+atualizarTela();
+}
+
+function calcularRankingCampanhas(){
+
+let resultado={};
+
+campanhas.forEach(c=>{
+resultado[c.nome]=0;
+});
+
+colaboradores.forEach(col=>{
+for(let camp in col.campanhas){
+resultado[camp]+=col.campanhas[camp];
+}
+});
+
+return resultado;
+}
+
+function atualizarTela(){
 
 salvar();
 
-const listaColab=document.getElementById("listaColaboradores");
 const listaCamp=document.getElementById("listaCampanhas");
-const rankingDiv=document.getElementById("ranking");
 const selectColab=document.getElementById("selectColaborador");
 const selectCamp=document.getElementById("selectCampanha");
-const historicoDiv=document.getElementById("historico");
-
-listaColab.innerHTML="";
-colaboradores.forEach(c=>{
-listaColab.innerHTML+=`<div class="lista-item">👤 ${c.nome}</div>`;
-});
 
 listaCamp.innerHTML="";
-campanhas.forEach(c=>{
-listaCamp.innerHTML+=`<div class="lista-item">🎯 ${c.nome} (+${c.valor})</div>`;
+campanhas.forEach((c,i)=>{
+listaCamp.innerHTML+=`
+<div class="lista-item">
+🎯 ${c.nome} (+${c.valor})
+<button class="remover" onclick="removerCampanha(${i})">❌</button>
+</div>`;
 });
 
 selectColab.innerHTML="";
@@ -225,52 +283,52 @@ selectColab.innerHTML+=`<option value="${i}">${c.nome}</option>`;
 
 selectCamp.innerHTML="";
 campanhas.forEach((c,i)=>{
-selectCamp.innerHTML+=`<option value="${i}">${c.nome} (+${c.valor})</option>`;
+selectCamp.innerHTML+=`<option value="${i}">${c.nome}</option>`;
 });
 
-if(colabSelecionado !== null) selectColab.value = colabSelecionado;
-if(campSelecionada !== null) selectCamp.value = campSelecionada;
-
-let rankingOrdenado=[...colaboradores].sort((a,b)=>b.pontos-a.pontos);
-rankingDiv.innerHTML="";
-let cores=[];
-
-rankingOrdenado.forEach((c,index)=>{
-let classe="amarelo";
-let cor="#facc15";
-let medalha="🥈";
-if(index===0){classe="verde";cor="#16a34a";medalha="🥇";}
-else if(index===rankingOrdenado.length-1&&rankingOrdenado.length>1){
-classe="vermelho";cor="#dc2626";medalha="🔻";
-}
-cores.push(cor);
-rankingDiv.innerHTML+=`<div class="ranking-item ${classe}">
-${medalha} ${c.nome} - ${c.pontos} pts
-</div>`;
-});
-
-historicoDiv.innerHTML="";
-historico.forEach(h=>{
-historicoDiv.innerHTML+=`
-<div class="historico-item">
-🕒 ${h.data} ${h.hora}<br>
-👤 ${h.colaborador} +${h.pontos} pts<br>
-🎯 ${h.campanha}
-</div>`;
-});
-
-atualizarGrafico(rankingOrdenado,cores);
+atualizarGraficoColaboradores();
+atualizarGraficoCampanhas();
 }
 
-function atualizarGrafico(dados,cores){
-if(grafico) grafico.destroy();
-grafico=new Chart(document.getElementById("grafico"),{
+function atualizarGraficoColaboradores(){
+
+if(graficoColab) graficoColab.destroy();
+
+let ordenado=[...colaboradores].sort((a,b)=>b.pontos-a.pontos);
+
+graficoColab=new Chart(document.getElementById("graficoColaboradores"),{
 type:"bar",
 data:{
-labels:dados.map(d=>d.nome),
+labels:ordenado.map(c=>c.nome),
 datasets:[{
-data:dados.map(d=>d.pontos),
-backgroundColor:cores
+data:ordenado.map(c=>c.pontos)
+}]
+},
+options:{
+plugins:{legend:{display:false}},
+scales:{
+x:{ticks:{color:"white"}},
+y:{ticks:{color:"white"}}
+}
+}
+});
+}
+
+function atualizarGraficoCampanhas(){
+
+if(graficoCamp) graficoCamp.destroy();
+
+let ranking=calcularRankingCampanhas();
+
+let nomes=Object.keys(ranking);
+let valores=Object.values(ranking);
+
+graficoCamp=new Chart(document.getElementById("graficoCampanhas"),{
+type:"bar",
+data:{
+labels:nomes,
+datasets:[{
+data:valores
 }]
 },
 options:{
